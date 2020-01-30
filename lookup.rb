@@ -21,49 +21,34 @@ def get_command_line_argument
   
   def parse_dns(dns_raw)
 
-    a = {}
-    cname = {}
+    dns_records = {}
 
-    dns_raw.each { |rec| 
+    dns_raw.
+      reject {|line| line.empty? }.
+      map {|line| line.strip.split(", ") }.
+      reject {|record| record.length < 3 }.
+      each {|record| dns_records[record[1]] = { :type => record[0], :val => record[2] } }
 
-                        record = rec.split(', ')
-
-                        if record[0].strip == 'A'
-                            key = record[1].strip
-                            a[key] = record[2].strip
-
-                        elsif record[0].strip == 'CNAME'
-                            key = record[1].strip
-                            cname[key] = record[2].strip
-
-                        end
-
-                }
-
-    dns_records = { 
-                    :a => a,
-                    :cname =>cname,
-                }
-    
     dns_records
 
   end
 
   def resolve(dns_records,lookup_chain,domain)
 
-    if dns_records[:cname].key?(domain)
-        lookup_chain.push(dns_records[:cname][domain])
-        resolve(dns_records,lookup_chain,dns_records[:cname][domain])
-    
-    elsif dns_records[:a].key?domain
-        lookup_chain.push(dns_records[:a][domain])
-        return lookup_chain
-        
-    else
-        lookup_chain.clear
-        puts "Error - Invalid domain name"
-        exit
-    end
+   record = dns_records[domain]
+
+   if record[:type] == 'CNAME'
+    lookup_chain.push(record[:val])
+    resolve(dns_records,lookup_chain,record[:val])
+
+   elsif record[:type] == 'A'
+    lookup_chain.push(record[:val])
+    return lookup_chain
+
+   else
+    puts 'Error - Address not found'
+
+   end
 
   end
     
@@ -75,3 +60,4 @@ def get_command_line_argument
   lookup_chain = [domain]
   lookup_chain = resolve(dns_records, lookup_chain, domain)
   puts lookup_chain.join(" => ")
+  
